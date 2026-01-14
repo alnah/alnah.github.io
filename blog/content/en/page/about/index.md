@@ -5,6 +5,11 @@ date: '2026-01-14'
 aliases:
   - about-me
   - contact
+menu:
+  main:
+    weight: -95
+    params:
+      icon: user
 ---
 
 I build backend systems and CLI tools in Go, documenting the journey as I learn.
