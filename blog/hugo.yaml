@@ -1,4 +1,4 @@
-baseURL: https://alnah.github.io
+baseURL: https://alnah.io
 title: alnah.io
 theme: stack
 
@@ -44,7 +44,7 @@ params:
     enabled: true
     provider: giscus
     giscus:
-      repo: alnah/alnah.github.io
+      repo: alnah/alnah.io
       repoID: R_kgDOQ5qkCA
       category: Comments
       categoryID: DIC_kwDOQ5qkCM4C08g7
