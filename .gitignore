@@ -1,0 +1,21 @@
+# Hugo build output (rebuilt by GitHub Actions)
+blog/public/
+blog/resources/_gen/
+
+# Hugo lock file
+blog/.hugo_build.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE - fichiers locaux uniquement
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*~
+
+# Secrets
+.env
+.env.*
