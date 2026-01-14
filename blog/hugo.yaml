@@ -12,7 +12,23 @@ languages:
     title: alnah.io
     contentDir: content/en
     params:
-      subtitle: Building reliable system in Go
+      sidebar:
+        subtitle: Building reliable systems in Go
+    menu:
+      main:
+        - identifier: home
+          name: Home
+          url: /en/
+          weight: -100
+          params:
+            icon: home
+        - identifier: github
+          name: GitHub
+          url: https://github.com/alnah
+          weight: -90
+          params:
+            icon: brand-github
+            newTab: true
   fr:
     languageCode: fr
     languageName: Français
@@ -20,7 +36,23 @@ languages:
     title: alnah.io
     contentDir: content/fr
     params:
-      subtitle: Construire des systèmes fiables en Go
+      sidebar:
+        subtitle: Construire des systèmes fiables en Go
+    menu:
+      main:
+        - identifier: home
+          name: Accueil
+          url: /fr/
+          weight: -100
+          params:
+            icon: home
+        - identifier: github
+          name: GitHub
+          url: https://github.com/alnah
+          weight: -90
+          params:
+            icon: brand-github
+            newTab: true
   pt-br:
     languageCode: pt-BR
     languageName: Português (Brasil)
@@ -28,7 +60,30 @@ languages:
     title: alnah.io
     contentDir: content/pt-br
     params:
-      subtitle: Construindo sistemas confiáveis em Go
+      sidebar:
+        subtitle: Construindo sistemas confiáveis em Go
+    menu:
+      main:
+        - identifier: home
+          name: Início
+          url: /pt-br/
+          weight: -100
+          params:
+            icon: home
+        - identifier: github
+          name: GitHub
+          url: https://github.com/alnah
+          weight: -90
+          params:
+            icon: brand-github
+            newTab: true
+
+outputs:
+  home:
+    - HTML
+  page:
+    - HTML
+    - JSON
 
 markup:
   highlight:
@@ -41,19 +96,30 @@ markup:
 
 menu:
   main: []
-  social:
-    - identifier: github
-      name: GitHub
-      url: https://github.com/alnah
-      params:
-        icon: brand-github
+  social: []
 
 params:
+  mainSections:
+    - post
   sidebar:
     avatar:
       enabled: true
       local: true
       src: img/avatar.png
+  widgets:
+    homepage:
+      - type: search
+      - type: archives
+        params:
+          limit: 5
+      - type: categories
+        params:
+          limit: 10
+      - type: tag-cloud
+        params:
+          limit: 10
+    page:
+      - type: toc
   comments:
     enabled: true
     provider: giscus
