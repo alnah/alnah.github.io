@@ -10,6 +10,7 @@ languages:
     languageName: English
     weight: 1
     title: alnah.io
+    contentDir: content/en
     params:
       subtitle: Building reliable system in Go
   fr:
@@ -17,6 +18,7 @@ languages:
     languageName: Français
     weight: 2
     title: alnah.io
+    contentDir: content/fr
     params:
       subtitle: Construire des systèmes fiables en Go
   pt-br:
@@ -24,5 +26,15 @@ languages:
     languageName: Português (Brasil)
     weight: 3
     title: alnah.io
+    contentDir: content/pt-br
     params:
       subtitle: Construindo sistemas confiáveis em Go
+
+markup:
+  highlight:
+    noClasses: false
+    codeFences: true
+    guessSyntax: true
+    lineNos: true
+    lineNumbersInTable: true
+    tabWidth: 4
