@@ -33,7 +33,7 @@ I'm also working on a personal EdTech project.
 
 ## Background
 
-I spent years teaching French online, breaking down complex grammar rules into learnable steps. That same approach now goes into writing code: clear structure, explicit logic, documentation that helps rather than confuses.
+Native French speaker, fluent in English and Portuguese. I spent years teaching French online, breaking down complex grammar rules into learnable steps. That same approach now goes into writing code: clear structure, explicit logic, documentation that helps rather than confuses.
 
 ## What I Write About
 

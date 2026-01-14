@@ -33,7 +33,7 @@ Também estou trabalhando em um projeto EdTech pessoal.
 
 ## Trajetória
 
-Passei anos ensinando francês online, decompondo regras gramaticais complexas em etapas compreensíveis. Essa mesma abordagem agora vai para a escrita de código: estrutura clara, lógica explícita, documentação que ajuda em vez de confundir.
+Francês nativo, fluente em inglês e português. Passei anos ensinando francês online, decompondo regras gramaticais complexas em etapas compreensíveis. Essa mesma abordagem agora vai para a escrita de código: estrutura clara, lógica explícita, documentação que ajuda em vez de confundir.
 
 ## O que escrevo aqui
 

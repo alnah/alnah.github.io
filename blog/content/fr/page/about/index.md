@@ -33,7 +33,7 @@ Je travaille aussi sur un projet EdTech personnel.
 
 ## Parcours
 
-J'ai passé des années à enseigner le français en ligne, décomposant des règles de grammaire complexes en étapes compréhensibles. Cette même approche s'applique maintenant à l'écriture de code : structure claire, logique explicite, documentation qui aide plutôt qu'elle ne confond.
+Français natif, bilingue en anglais et portugais. J'ai passé des années à enseigner le français en ligne, décomposant des règles de grammaire complexes en étapes compréhensibles. Cette même approche s'applique maintenant à l'écriture de code : structure claire, logique explicite, documentation qui aide plutôt qu'elle ne confond.
 
 ## Ce que j'écris ici
 
