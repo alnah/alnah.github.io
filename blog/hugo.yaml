@@ -38,3 +38,19 @@ markup:
     lineNos: true
     lineNumbersInTable: true
     tabWidth: 4
+
+params:
+  comments:
+    enabled: true
+    provider: giscus
+    giscus:
+      repo: alnah/alnah.github.io
+      repoID: R_kgDOQ5qkCA
+      category: Comments
+      categoryID: DIC_kwDOQ5qkCM4C08g7
+      mapping: pathname
+      reactionsEnabled: 1
+      emitMetadata: 0
+      inputPosition: top
+      lightTheme: light
+      darkTheme: dark_dimmed
