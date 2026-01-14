@@ -3,7 +3,7 @@ title: "Go Project Layout: What Actually Works"
 description: "Practical patterns for structuring Go projects based on Helm, Hugo, and Prometheus, not the unofficial 'standard' layout."
 date: 2026-01-14
 lastmod: 2026-01-14
-draft: true
+draft: false
 image: cover.jpg
 categories:
   - Best Practices
@@ -130,6 +130,8 @@ Do not use `internal/` for:
 
 - Small projects where unexported functions suffice
 - Code you might want to expose later (moving out of `internal/` is a breaking change for your imports)
+
+[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) goes further: don't use `internal/` unless you're shipping to many third-party users with extensive shared code. His argument: most code doesn't need hiding, and unexported functions within a package are usually enough. This is a valid stance for applications and small libraries.
 
 ## When to create a new package
 

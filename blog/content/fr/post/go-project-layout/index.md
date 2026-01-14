@@ -3,7 +3,7 @@ title: "Structure de projet Go : ce qui fonctionne vraiment"
 description: "Patterns pratiques pour structurer vos projets Go, basés sur Helm, Hugo et Prometheus, pas sur le 'standard' non officiel."
 date: 2026-01-14
 lastmod: 2026-01-14
-draft: true
+draft: false
 image: cover.jpg
 categories:
   - Best Practices
@@ -130,6 +130,8 @@ N'utilisez pas `internal/` pour :
 
 - Les petits projets où les fonctions non exportées suffisent
 - Du code que vous pourriez vouloir exposer plus tard (sortir de `internal/` est un breaking change pour vos imports)
+
+[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) va plus loin : n'utilisez pas `internal/` sauf si vous livrez à de nombreux utilisateurs tiers avec beaucoup de code partagé. Son argument : la plupart du code n'a pas besoin d'être caché, et les fonctions non exportées dans un package suffisent généralement. C'est une position valide pour les applications et les petites bibliothèques.
 
 ## Quand créer un nouveau package
 
