@@ -1,6 +1,6 @@
 ---
-title: "Estrutura de Projeto Go: O Que Realmente Funciona"
-description: "Padrões práticos para estruturar projetos Go baseados em Helm, Hugo e Prometheus, não no layout 'padrão' não oficial."
+title: "Estrutura de projeto Go: o que realmente funciona"
+description: "Padrões práticos para estruturar projetos Go: biblioteca, CLI, servidor e layouts combinados baseados em projetos reais, não no 'padrão' não oficial."
 date: 2026-01-14
 lastmod: 2026-01-14
 draft: false
@@ -11,25 +11,27 @@ tags:
   - project-structure
   - modules
   - tooling
+  - cli
+  - api
 ---
 
-A comunidade Go não tem uma estrutura de projeto oficial. Isso é intencional. Mesmo assim, desenvolvedores passam horas debatendo `pkg/` vs pacotes na raiz, quando a resposta depende do que você está construindo.
+A equipe Go recomenda explicitamente simplicidade em vez de estrutura. [Russ Cox](https://github.com/golang-standards/project-layout/issues/117), líder técnico do Go, criticou publicamente o popular repositório [golang-standards/project-layout](https://github.com/golang-standards/project-layout) (54k+ stars), afirmando que "não é um padrão Go" e que "repositórios Go tendem a ser muito mais simples."
 
-Aqui está uma visão prática sobre como estruturar projetos Go, baseada em padrões do Helm, Hugo, Prometheus e projetos menores.
+O mínimo oficial: uma LICENSE, um go.mod e código Go organizado como você preferir. Este guia fornece recomendações para quatro tipos de projetos, baseadas em padrões de projetos em produção.
 
 ## A única regra que importa
 
-Go impõe exatamente uma regra estrutural: pacotes em `internal/` não podem ser importados de fora do módulo. Todo o resto é convenção.
+Go impõe exatamente uma regra estrutural: pacotes em `internal/` não podem ser importados de fora do módulo. Isso é imposto pelo compilador, não por convenção.
 
-A documentação oficial em [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout) diz: comece simples. Um `main.go` e `go.mod` é suficiente para projetos pequenos. Adicione estrutura quando precisar, não antes.
+A documentação oficial em [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout) diz: comece simples. Um `main.go` e um `go.mod` são suficientes para projetos pequenos. Adicione estrutura quando precisar, não antes.
 
-## Três padrões que funcionam
+## Quatro padrões que funcionam
 
-### Biblioteca na raiz
+### Biblioteca apenas
 
-Para projetos destinados a serem importados por outros.
+Para projetos destinados a serem importados por outros. Coloque o código exportável na raiz do repositório para caminhos de import limpos.
 
-```
+```text
 mylib/
 ├── go.mod
 ├── mylib.go            # API principal
@@ -49,11 +51,61 @@ client := mylib.New(mylib.WithTimeout(5 * time.Second))
 
 Exemplos: [Cobra](https://github.com/spf13/cobra), [Viper](https://github.com/spf13/viper), [goldmark](https://github.com/yuin/goldmark).
 
-### Biblioteca + CLI
+### CLI apenas
 
-Para projetos que oferecem tanto uma biblioteca quanto uma ferramenta de linha de comando.
+Para ferramentas não destinadas a serem importadas como bibliotecas. Colocar tudo em `internal/` sinaliza que é uma aplicação, não uma biblioteca.
 
+```text
+mytool/
+├── go.mod
+├── main.go
+├── internal/
+│   ├── cmd/            # Implementações de comandos
+│   ├── config/         # Configuração
+│   └── core/           # Lógica de negócio
+└── testdata/
 ```
+
+[Terraform](https://github.com/hashicorp/terraform) usa essa abordagem: 100% da implementação vive em `internal/`, sinalizando explicitamente que nenhuma API Go estável existe.
+
+Para múltiplos binários relacionados, use `cmd/`:
+
+```text
+mytools/
+├── go.mod
+├── cmd/
+│   ├── tool1/
+│   │   └── main.go
+│   └── tool2/
+│       └── main.go
+└── internal/
+    └── shared/
+```
+
+### Servidor apenas
+
+Para servidores HTTP/gRPC não destinados a serem importados. Organize por domínio, não por camada técnica.
+
+```text
+myserver/
+├── go.mod
+├── main.go
+├── routes.go           # Todos os mapeamentos de endpoints
+└── internal/
+    ├── handlers/
+    ├── middleware/
+    └── storage/
+```
+
+[Prometheus](https://github.com/prometheus/prometheus) demonstra organização orientada a domínio com diretórios de primeiro nível como `promql/`, `tsdb/` e `scrape/` em vez de `controllers/`, `models/`, `services/`.
+
+Padrões de layout de servidor merecem seu próprio artigo. O princípio chave: mantenha as rotas descobríveis em um único lugar, passe dependências explicitamente.
+
+### Biblioteca + CLI (+ servidor)
+
+Para projetos que oferecem tanto uma biblioteca quanto ferramentas de linha de comando. O CLI é uma camada fina em torno da biblioteca.
+
+```text
 myproject/
 ├── go.mod
 ├── service.go          # API pública
@@ -66,7 +118,7 @@ myproject/
         └── main.go
 ```
 
-O CLI é uma camada fina sobre a biblioteca. Usuários podem:
+Usuários podem:
 
 ```bash
 # Importar a biblioteca
@@ -76,64 +128,77 @@ go get github.com/user/myproject
 go install github.com/user/myproject/cmd/mytool@latest
 ```
 
-Exemplos: [Helm](https://github.com/helm/helm), [Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus).
+[Helm](https://github.com/helm/helm) documenta explicitamente essa fronteira: "código dentro de cmd/ não é projetado para reutilização como biblioteca."
 
-### Apenas CLI
+Exemplos: [Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus).
 
-Para ferramentas que não são destinadas a serem importadas como bibliotecas.
+## O debate pkg/
 
-```
-mytool/
-├── go.mod
-├── main.go
-├── internal/
-│   ├── cmd/            # Implementações de comandos
-│   ├── config/         # Configuração
-│   └── core/           # Lógica de negócio
-└── testdata/
-```
-
-Tudo em `internal/` sinaliza: isto é uma aplicação, não uma biblioteca. [Terraform](https://github.com/hashicorp/terraform) usa essa abordagem.
-
-## Por que não pkg/?
-
-O diretório `pkg/` adiciona um segmento de caminho sem benefício:
+A equipe Go não recomenda `pkg/`. Isso adiciona um segmento de caminho sem benefício semântico:
 
 ```go
 // Com pkg/
-import "github.com/user/project/pkg/thing"
+import "github.com/user/project/pkg/client"
 
 // Sem pkg/
-import "github.com/user/project/thing"
+import "github.com/user/project/client"
 ```
 
-O segundo é mais curto e claro. O time Go explicitamente não recomenda `pkg/`. [Russ Cox](https://github.com/golang-standards/project-layout/issues/117), líder técnico do Go, criticou o repo [golang-standards/project-layout](https://github.com/golang-standards/project-layout) (54k+ stars) por promover padrões que o time Go nunca endossou.
+[Brad Fitzpatrick](https://github.com/golang-standards/project-layout/issues/117#issuecomment-828503689) confirmou que a biblioteca padrão abandonou `pkg/` no Go 1.4, mas a comunidade copiou por cargo cult de projetos antigos como Kubernetes.
 
-Projetos modernos ([Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus), [Cobra](https://github.com/spf13/cobra)) não usam `pkg/`.
+### Argumentos contra pkg/
 
-## Quando usar internal/
+- **Redundância**: todo código Go já é um "package"
+- **Caminhos de import mais longos**: cada import em cada arquivo fica mais longo
+- **Nenhum benefício para ferramentas**: o compilador trata como qualquer outro diretório
 
-Use `internal/` para código que:
+### Argumentos a favor de pkg/
 
-- Suporta sua API pública mas não deve ser exposto
-- Pode mudar sem aviso
-- Não tem garantias de estabilidade
+- **Clareza visual**: quando sua raiz tem Makefile, Dockerfile, docker-compose.yml, .github/, terraform/ e configs de CI, `pkg/` cria separação entre código Go e configuração
+- **Sinal explícito**: comunica "este código é projetado para uso externo"
+- **Consistência com cmd/ e internal/**: alguns argumentam que `pkg/` ao lado de `cmd/` é mais consistente do que misturar pacotes com pontos de entrada
 
-Candidatos comuns:
+### Quem usa pkg/?
 
-- Parsing de configuração
-- Funções utilitárias (manipulação de arquivos, strings)
-- Implementações de protocolos
-- Helpers de teste
+| Usa pkg/ | Não usa pkg/ |
+| -------- | ------------ |
+| [Kubernetes](https://github.com/kubernetes/kubernetes), [Helm](https://github.com/helm/helm), [CockroachDB](https://github.com/cockroachdb/cockroach), [etcd](https://github.com/etcd-io/etcd), [InfluxDB](https://github.com/influxdata/influxdb) | [Prometheus](https://github.com/prometheus/prometheus), [Hugo](https://github.com/gohugoio/hugo), [Terraform](https://github.com/hashicorp/terraform), [Consul](https://github.com/hashicorp/consul), [Cobra](https://github.com/spf13/cobra) |
 
-Não use `internal/` para:
+O padrão: projetos que adotaram `pkg/` foram frequentemente criados antes do Go 1.4 (quando `internal/` foi introduzido). Projetos mais recentes cada vez mais o evitam.
 
-- Projetos pequenos onde funções não exportadas são suficientes
-- Código que você pode querer expor depois (mover para fora de `internal/` é uma breaking change para seus imports)
+**Recomendação**: evite `pkg/` para novos projetos a menos que você tenha muitos arquivos não-Go na raiz E queira sinalizar explicitamente reutilização como biblioteca.
 
-[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) vai mais longe: não use `internal/` a menos que você esteja entregando para muitos usuários terceiros com muito código compartilhado. Seu argumento: a maioria do código não precisa ser escondida, e funções não exportadas dentro de um pacote geralmente são suficientes. Essa é uma posição válida para aplicações e bibliotecas pequenas.
+## Quando internal/ agrega valor
 
-## Quando criar um novo pacote
+Diferente de `pkg/`, o diretório `internal/` tem aplicação pelo compilador. Código em `internal/` só pode ser importado por código na mesma árvore de módulos.
+
+### Os argumentos a favor de internal/
+
+A [documentação oficial Go](https://go.dev/doc/modules/layout) recomenda: "é recomendado colocar tais pacotes em um diretório chamado internal; isso impede outros módulos de depender de pacotes que não necessariamente queremos expor."
+
+[Dave Cheney](https://dave.cheney.net/2019/10/06/use-internal-packages-to-reduce-your-public-api-surface) enfatiza a natureza opt-in: "Você pode promover pacotes internos depois se quiser se comprometer a suportar essa API; basta movê-los um ou dois níveis de diretório acima. O essencial é que esse processo é opt-in."
+
+Benefícios:
+
+- Proteção contra exposição acidental de API
+- Liberdade para refatorar sem quebrar usuários externos
+- Fronteira clara entre contrato público e implementação
+
+### O contra-argumento
+
+[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) argumenta que a maioria dos projetos não precisa de `internal/`: "não use internal/ a menos que você esteja entregando para muitos usuários terceiros com muito código compartilhado."
+
+Sua alternativa: use semver 0.x para flexibilidade e documente mudanças claramente, "em vez de sub-publicar e forçar pessoas a fazer fork para acessar o que realmente precisam."
+
+Isso é válido para aplicações e bibliotecas pequenas. Mas para bibliotecas com adoção significativa, `internal/` evita a dor de manter APIs que você nunca pretendeu suportar.
+
+### A verdadeira questão
+
+A decisão não é apenas "usuários externos devem importar isso?" mas "estou disposto a manter estabilidade de API para este código?"
+
+Cada pacote fora de `internal/` carrega implicitamente expectativas de estabilidade. Se você espera refatorar frequentemente, use `internal/` independentemente de import externo ser provável ou não.
+
+## Quando criar um pacote
 
 Crie um pacote quando:
 
@@ -145,91 +210,70 @@ Não crie um pacote para:
 
 - Um único arquivo com algumas funções helper
 - "Organização" sem benefício funcional
-- Copiar a estrutura de algum projeto externo
+- Copiar a estrutura de um projeto externo
 
-Um arquivo de 200 linhas na raiz é ok. Um pacote `utils/` com três funções é over-engineering.
+Um arquivo de 200 linhas na raiz está ok. Um pacote `utils/` com três funções é over-engineering.
 
 ## O processo de decisão
 
 Ao adicionar código:
 
-| Pergunta                                    | Sim                                                          | Não                      |
-| ------------------------------------------- | ------------------------------------------------------------ | ------------------------ |
-| Usuários externos devem importar isso?      | Pacote raiz                                                  | `internal/`              |
-| Isso é específico do CLI?                   | `cmd/appname/`                                               | Código de biblioteca     |
-| Isso precisa de seu próprio pacote?         | Apenas se múltiplos arquivos com responsabilidade distinta   | Manter no pacote existente |
+| Questão | Sim | Não |
+| ------- | --- | --- |
+| Usuários externos devem importar isso? | Raiz ou `pkg/` | `internal/` |
+| Estou disposto a manter estabilidade de API? | Raiz ou `pkg/` | `internal/` |
+| Isso é específico do CLI/servidor? | `cmd/appname/` ou `internal/` | Código de biblioteca |
+| Isso precisa de seu próprio pacote? | Apenas se múltiplos arquivos com responsabilidade distinta | Manter no pacote existente |
 
 ## Organização de arquivos na raiz
 
 Para projetos de biblioteca, divida por responsabilidade:
 
-```
+```text
 mylib/
 ├── client.go           # Tipo Client e métodos
 ├── option.go           # Opções funcionais
 ├── types.go            # Tipos públicos
 ├── errors.go           # Erros sentinela
-├── request.go          # Construção de requests
-├── response.go         # Parsing de responses
+├── request.go          # Construção de requisições
+├── response.go         # Parsing de respostas
 └── mylib_test.go       # Testes
 ```
 
-Cada arquivo tem uma responsabilidade. Procurando definições de erro? Veja `errors.go`. Procurando configuração? Veja `option.go`.
+Cada arquivo tem uma única responsabilidade. Procurando definições de erro? Veja `errors.go`. Configuração? Veja `option.go`.
 
 Evite:
 
-- `util.go` (nomeie pelo que ele faz)
+- `util.go` (nomeie pelo que faz)
 - `helpers.go` (mesmo problema)
-- `misc.go` (onde código vai para morrer)
-
-## Considerações para mono-repo
-
-Para projetos com múltiplos binários:
-
-```
-myproject/
-├── go.mod              # Módulo único
-├── lib/                # Código de biblioteca compartilhado
-├── cmd/
-│   ├── server/
-│   ├── worker/
-│   └── cli/
-└── internal/
-    └── shared/         # Código interno compartilhado
-```
-
-Evite repos multi-módulo (múltiplos arquivos `go.mod`) a menos que tenha uma razão forte. Eles complicam:
-
-- Desenvolvimento local (precisa de diretivas `replace`)
-- Versionamento (tags devem incluir o caminho do módulo)
-- Testes (`go test ./...` não funciona entre módulos)
-
-O time Go recomenda repos single-module para a maioria dos projetos.
+- `misc.go` (onde código vai morrer)
 
 ## Exemplos reais
 
-| Projeto    | Estrutura                 | Biblioteca importável?                         |
-| ---------- | ------------------------- | ---------------------------------------------- |
-| Cobra      | Pacote raiz               | Sim, `github.com/spf13/cobra`                  |
-| Helm       | `pkg/` + `cmd/`           | Sim, `helm.sh/helm/v3/pkg/action`              |
-| Hugo       | Raiz + `hugolib/`         | Sim, `github.com/gohugoio/hugo/hugolib`        |
-| Prometheus | Pacotes raiz              | Sim, `github.com/prometheus/prometheus/promql` |
-| Terraform  | Tudo em `internal/`       | Não, apenas CLI                                |
+| Projeto | Estrutura | Biblioteca importável? | Usa pkg/? |
+| ------- | --------- | ---------------------- | --------- |
+| [Cobra](https://github.com/spf13/cobra) | Pacote raiz | Sim | Não |
+| [Helm](https://github.com/helm/helm) | `pkg/` + `cmd/` | Sim | Sim |
+| [Hugo](https://github.com/gohugoio/hugo) | Raiz + pacotes de domínio | Sim | Não |
+| [Prometheus](https://github.com/prometheus/prometheus) | Pacotes de domínio | Sim | Não |
+| [Terraform](https://github.com/hashicorp/terraform) | Tudo em `internal/` | Não | Não |
+| [Kubernetes](https://github.com/kubernetes/kubernetes) | `pkg/` + `cmd/` | Sim | Sim |
 
 ## Erros comuns
 
-- **Estruturar demais cedo**: começar com `pkg/`, `internal/`, `cmd/`, `api/`, `web/` para um projeto de 500 linhas. Comece simples, adicione estrutura quando a dor aparecer.
-- **Copiar [golang-standards/project-layout](https://github.com/golang-standards/project-layout)**: esse repo não é endossado pelo time Go. Ele promove padrões que a maioria dos projetos Go não usa.
-- **Pacotes vazios para uso futuro**: se um pacote tem um arquivo com duas funções, não é um pacote. É um arquivo.
-- **internal/ para tudo**: se nada é importável, seu projeto é uma aplicação, não uma biblioteca. Tudo bem, mas seja intencional sobre isso.
+- **Estruturar demais cedo**: começar com `pkg/`, `internal/`, `cmd/`, `api/`, `web/` para um projeto de 500 linhas. Comece plano, adicione estrutura quando a dor aparecer.
+- **Copiar golang-standards/project-layout**: esse repositório não é endossado pela equipe Go. Ele promove padrões que a maioria dos projetos Go não usa.
+- **Pacotes vazios para "uso futuro"**: se um pacote tem um arquivo com duas funções, não é um pacote. É um arquivo.
+- **internal/ para tudo em aplicações**: se nada é importável e você está construindo um CLI, `internal/` no nível superior não agrega nada além de funções não exportadas.
+- **Evitar pkg/ cegamente**: se sua raiz está cheia de configs e você está construindo uma biblioteca, `pkg/` pode melhorar a clareza. Avalie, não rejeite dogmaticamente.
 
 ## Resumo
 
 - **Comece simples**: `main.go` + `go.mod` é válido
 - **Código de biblioteca na raiz**: caminhos de import limpos
-- **CLI em cmd/**: camada fina sobre a biblioteca
-- **Código privado em internal/**: detalhes de implementação
-- **Evite pkg/**: não adiciona nada
-- **Um módulo**: evite complexidade multi-módulo
+- **CLI/servidor em cmd/** ou main.go: camada fina em torno da biblioteca
+- **Código privado em internal/**: quando você precisa de privacidade imposta pelo compilador
+- **pkg/ é opcional**: evite a menos que tenha uma razão específica
+- **Um único módulo**: evite complexidade multi-módulo (tema para outro artigo)
 
-A melhor estrutura é aquela em que você não pensa. Se você está gastando tempo com estrutura em vez de código, está fazendo over-engineering.
+A melhor estrutura é aquela em que você não pensa. Se você está gastando tempo em estrutura em vez de código, está fazendo over-engineering.

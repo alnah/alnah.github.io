@@ -1,6 +1,6 @@
 ---
-title: "Go Project Layout: What Actually Works"
-description: "Practical patterns for structuring Go projects based on Helm, Hugo, and Prometheus, not the unofficial 'standard' layout."
+title: 'Go Project Layout: What Actually Works'
+description: "Practical patterns for structuring Go projects: library, CLI, server, and combined layouts based on real projects, not the unofficial 'standard'."
 date: 2026-01-14
 lastmod: 2026-01-14
 draft: false
@@ -11,25 +11,27 @@ tags:
   - project-structure
   - modules
   - tooling
+  - cli
+  - api
 ---
 
-The Go community has no official project layout. This is intentional. Yet developers spend hours debating `pkg/` vs root packages, when the answer depends on what you're building.
+The Go team explicitly recommends simplicity over structure. [Russ Cox](https://github.com/golang-standards/project-layout/issues/117), Go's tech lead, publicly criticized the popular [golang-standards/project-layout](https://github.com/golang-standards/project-layout) repository (54k+ stars), stating it "is not a Go standard" and that "Go repos tend to be much simpler."
 
-Here's a practical take on structuring Go projects, based on patterns from Helm, Hugo, Prometheus, and smaller projects.
+The official minimum: a LICENSE, go.mod, and Go code organized as you see fit. This guide provides recommendations for four project types, based on patterns from production projects.
 
 ## The only rule that matters
 
-Go enforces exactly one structural rule: `internal/` packages cannot be imported from outside the module. Everything else is convention.
+Go enforces exactly one structural rule: packages in `internal/` cannot be imported from outside the module. This is compiler-enforced, not convention.
 
 The official documentation at [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout) says: start simple. A `main.go` and `go.mod` is enough for small projects. Add structure when you need it, not before.
 
-## Three patterns that work
+## Four patterns that work
 
-### Library at root
+### Library only
 
-For projects meant to be imported by others.
+For projects meant to be imported by others. Place exportable code at the repository root for clean import paths.
 
-```
+```text
 mylib/
 ├── go.mod
 ├── mylib.go            # Primary API
@@ -49,11 +51,61 @@ client := mylib.New(mylib.WithTimeout(5 * time.Second))
 
 Examples: [Cobra](https://github.com/spf13/cobra), [Viper](https://github.com/spf13/viper), [goldmark](https://github.com/yuin/goldmark).
 
-### Library + CLI
+### CLI only
 
-For projects offering both a library and a command-line tool.
+For tools not meant to be imported as libraries. Everything in `internal/` signals this is an application, not a library.
 
+```text
+mytool/
+├── go.mod
+├── main.go
+├── internal/
+│   ├── cmd/            # Command implementations
+│   ├── config/         # Configuration
+│   └── core/           # Business logic
+└── testdata/
 ```
+
+[Terraform](https://github.com/hashicorp/terraform) uses this approach: 100% of implementation lives in `internal/`, explicitly signaling no stable Go API exists.
+
+For multiple related binaries, use `cmd/`:
+
+```text
+mytools/
+├── go.mod
+├── cmd/
+│   ├── tool1/
+│   │   └── main.go
+│   └── tool2/
+│       └── main.go
+└── internal/
+    └── shared/
+```
+
+### Server only
+
+For HTTP/gRPC servers not meant to be imported. Organize by domain, not by technical layer.
+
+```text
+myserver/
+├── go.mod
+├── main.go
+├── routes.go           # All endpoint mappings
+└── internal/
+    ├── handlers/
+    ├── middleware/
+    └── storage/
+```
+
+[Prometheus](https://github.com/prometheus/prometheus) demonstrates domain-driven organization with top-level directories like `promql/`, `tsdb/`, and `scrape/` rather than `controllers/`, `models/`, `services/`.
+
+Server layout patterns deserve their own article. The key principle: keep routes discoverable in one place, pass dependencies explicitly.
+
+### Library + CLI (+ server)
+
+For projects offering both a library and command-line tools. The CLI is a thin wrapper around the library.
+
+```text
 myproject/
 ├── go.mod
 ├── service.go          # Public API
@@ -66,7 +118,7 @@ myproject/
         └── main.go
 ```
 
-The CLI is a thin wrapper around the library. Users can:
+Users can:
 
 ```bash
 # Import the library
@@ -76,64 +128,77 @@ go get github.com/user/myproject
 go install github.com/user/myproject/cmd/mytool@latest
 ```
 
-Examples: [Helm](https://github.com/helm/helm), [Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus).
+[Helm](https://github.com/helm/helm) explicitly documents this boundary: "code inside of cmd/ is not designed for library re-use."
 
-### CLI only
+Examples: [Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus).
 
-For tools not meant to be imported as libraries.
+## The pkg/ debate
 
-```
-mytool/
-├── go.mod
-├── main.go
-├── internal/
-│   ├── cmd/            # Command implementations
-│   ├── config/         # Configuration
-│   └── core/           # Business logic
-└── testdata/
-```
-
-Everything in `internal/` signals: this is an application, not a library. [Terraform](https://github.com/hashicorp/terraform) uses this approach.
-
-## Why not pkg/?
-
-The `pkg/` directory adds a path segment for no benefit:
+The Go team does not recommend `pkg/`. It adds a path segment without semantic benefit:
 
 ```go
 // With pkg/
-import "github.com/user/project/pkg/thing"
+import "github.com/user/project/pkg/client"
 
 // Without pkg/
-import "github.com/user/project/thing"
+import "github.com/user/project/client"
 ```
 
-The second is shorter and clearer. The Go team explicitly does not recommend `pkg/`. [Russ Cox](https://github.com/golang-standards/project-layout/issues/117), Go's tech lead, called out the [golang-standards/project-layout](https://github.com/golang-standards/project-layout) repo (54k+ stars) for promoting patterns the Go team never endorsed.
+[Brad Fitzpatrick](https://github.com/golang-standards/project-layout/issues/117#issuecomment-828503689) confirmed the standard library dropped `pkg/` in Go 1.4, yet the community cargo-culted it from early projects like Kubernetes.
 
-Modern projects ([Hugo](https://github.com/gohugoio/hugo), [Prometheus](https://github.com/prometheus/prometheus), [Cobra](https://github.com/spf13/cobra)) skip `pkg/` entirely.
+### Arguments against pkg/
 
-## When to use internal/
+- **Redundancy**: all Go code is already a "package"
+- **Longer import paths**: every import in every file gets longer
+- **No tooling benefit**: the compiler treats it like any other directory
 
-Use `internal/` for code that:
+### Arguments for pkg/
 
-- Supports your public API but shouldn't be exposed
-- May change without notice
-- Has no stability guarantees
+- **Visual clarity**: when your root has Makefile, Dockerfile, docker-compose.yml, .github/, terraform/, and CI configs, `pkg/` creates separation between Go code and configuration
+- **Explicit signal**: communicates "this code is designed for external use"
+- **Consistency with cmd/ and internal/**: some argue `pkg/` beside `cmd/` is more consistent than mixing packages with entry points
 
-Common candidates:
+### Who uses pkg/?
 
-- Configuration parsing
-- Utility functions (file handling, string manipulation)
-- Protocol implementations
-- Test helpers
+| Uses pkg/                                                                                                                                                                                                                                          | Skips pkg/                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Kubernetes](https://github.com/kubernetes/kubernetes), [Helm](https://github.com/helm/helm), [CockroachDB](https://github.com/cockroachdb/cockroach), [etcd](https://github.com/etcd-io/etcd), [InfluxDB](https://github.com/influxdata/influxdb) | [Prometheus](https://github.com/prometheus/prometheus), [Hugo](https://github.com/gohugoio/hugo), [Terraform](https://github.com/hashicorp/terraform), [Consul](https://github.com/hashicorp/consul), [Cobra](https://github.com/spf13/cobra) |
 
-Do not use `internal/` for:
+The pattern: projects that adopted `pkg/` were often created before Go 1.4 (when `internal/` was introduced). Newer projects increasingly skip it.
 
-- Small projects where unexported functions suffice
-- Code you might want to expose later (moving out of `internal/` is a breaking change for your imports)
+**Recommendation**: skip `pkg/` for new projects unless you have many non-Go files at root AND want to explicitly signal library reusability.
 
-[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) goes further: don't use `internal/` unless you're shipping to many third-party users with extensive shared code. His argument: most code doesn't need hiding, and unexported functions within a package are usually enough. This is a valid stance for applications and small libraries.
+## When internal/ provides value
 
-## When to create a new package
+Unlike `pkg/`, the `internal/` directory has compiler enforcement. Code in `internal/` can only be imported by code in the same module tree.
+
+### The case for internal/
+
+The [official Go documentation](https://go.dev/doc/modules/layout) recommends it: "it's recommended placing such packages into a directory named internal; this prevents other modules from depending on packages we don't necessarily want to expose."
+
+[Dave Cheney](https://dave.cheney.net/2019/10/06/use-internal-packages-to-reduce-your-public-api-surface) emphasizes the opt-in nature: "You can promote internal packages later if you want to commit to supporting that API; just move them up a directory level. The key is this process is opt-in."
+
+Benefits:
+
+- Protection against accidental API exposure
+- Freedom to refactor without breaking external users
+- Clear boundary between public contract and implementation
+
+### The counter-argument
+
+[Laurent Demailly](https://laurentsv.com/blog/2024/10/19/no-nonsense-go-package-layout.html) argues most projects don't need `internal/`: "don't use internal/ unless you're shipping to many third-party users with extensive shared code."
+
+His alternative: use 0.x semver for flexibility and document changes clearly, "rather than under-publishing and forcing people to fork to access what they really need."
+
+This is valid for applications and small libraries. But for libraries with significant adoption, `internal/` prevents the pain of maintaining APIs you never intended to support.
+
+### The real question
+
+The decision isn't just "should external users import this?" but "am I willing to maintain API stability for this code?"
+
+Every package outside `internal/` implicitly carries stability expectations. If you expect to refactor frequently, use `internal/` regardless of whether external import is likely.
+
+## When to create a package
 
 Create a package when:
 
@@ -153,17 +218,18 @@ A 200-line file at root is fine. A `utils/` package with three functions is over
 
 When adding code:
 
-| Question                           | Yes                                                 | No                       |
-| ---------------------------------- | --------------------------------------------------- | ------------------------ |
-| Should external users import this? | Root package                                        | `internal/`              |
-| Is this CLI-specific?              | `cmd/appname/`                                      | Library code             |
-| Does this need its own package?    | Only if multiple files with distinct responsibility | Keep in existing package |
+| Question                                | Yes                                                 | No                       |
+| --------------------------------------- | --------------------------------------------------- | ------------------------ |
+| Should external users import this?      | Root or `pkg/`                                      | `internal/`              |
+| Am I willing to maintain API stability? | Root or `pkg/`                                      | `internal/`              |
+| Is this CLI/server-specific?            | `cmd/appname/` or `internal/`                       | Library code             |
+| Does this need its own package?         | Only if multiple files with distinct responsibility | Keep in existing package |
 
 ## File organization at root
 
 For library projects, split by responsibility:
 
-```
+```text
 mylib/
 ├── client.go           # Client type and methods
 ├── option.go           # Functional options
@@ -182,54 +248,32 @@ Avoid:
 - `helpers.go` (same problem)
 - `misc.go` (where code goes to die)
 
-## Mono-repo considerations
-
-For projects with multiple binaries:
-
-```
-myproject/
-├── go.mod              # Single module
-├── lib/                # Shared library code
-├── cmd/
-│   ├── server/
-│   ├── worker/
-│   └── cli/
-└── internal/
-    └── shared/         # Internal shared code
-```
-
-Avoid multi-module repos (multiple `go.mod` files) unless you have a strong reason. They complicate:
-
-- Local development (need `replace` directives)
-- Versioning (tags must include module path)
-- Testing (`go test ./...` doesn't work across modules)
-
-The Go team recommends single-module repos for most projects.
-
 ## Real examples
 
-| Project    | Structure                 | Library importable?                            |
-| ---------- | ------------------------- | ---------------------------------------------- |
-| Cobra      | Root package              | Yes, `github.com/spf13/cobra`                  |
-| Helm       | `pkg/` + `cmd/`           | Yes, `helm.sh/helm/v3/pkg/action`              |
-| Hugo       | Root + `hugolib/`         | Yes, `github.com/gohugoio/hugo/hugolib`        |
-| Prometheus | Root packages             | Yes, `github.com/prometheus/prometheus/promql` |
-| Terraform  | Everything in `internal/` | No, CLI only                                   |
+| Project                                                | Structure                 | Library importable? | Uses pkg/? |
+| ------------------------------------------------------ | ------------------------- | ------------------- | ---------- |
+| [Cobra](https://github.com/spf13/cobra)                | Root package              | Yes                 | No         |
+| [Helm](https://github.com/helm/helm)                   | `pkg/` + `cmd/`           | Yes                 | Yes        |
+| [Hugo](https://github.com/gohugoio/hugo)               | Root + domain packages    | Yes                 | No         |
+| [Prometheus](https://github.com/prometheus/prometheus) | Domain packages           | Yes                 | No         |
+| [Terraform](https://github.com/hashicorp/terraform)    | Everything in `internal/` | No                  | No         |
+| [Kubernetes](https://github.com/kubernetes/kubernetes) | `pkg/` + `cmd/`           | Yes                 | Yes        |
 
 ## Common mistakes
 
-- **Over-structuring early**: Starting with `pkg/`, `internal/`, `cmd/`, `api/`, `web/` for a 500-line project. Start flat, add structure when pain appears.
-- **Copying [golang-standards/project-layout](https://github.com/golang-standards/project-layout)**: That repo is not endorsed by the Go team. It promotes patterns most Go projects don't use.
-- **Empty packages for "future use"**: If a package has one file with two functions, it's not a package. It's a file.
-- **internal/ for everything**: If nothing is importable, your project is an application, not a library. That's fine, but be intentional about it.
+- **Over-structuring early**: starting with `pkg/`, `internal/`, `cmd/`, `api/`, `web/` for a 500-line project. Start flat, add structure when pain appears.
+- **Copying golang-standards/project-layout**: that repo is not endorsed by the Go team. It promotes patterns most Go projects don't use.
+- **Empty packages for "future use"**: if a package has one file with two functions, it's not a package. It's a file.
+- **internal/ for everything in applications**: if nothing is importable and you're building a CLI, top-level `internal/` adds no value over unexported functions.
+- **Blindly avoiding pkg/**: if your root is cluttered with configs and you're building a library, `pkg/` might improve clarity. Evaluate, don't dogmatically reject.
 
 ## Summary
 
 - **Start simple**: `main.go` + `go.mod` is valid
 - **Library code at root**: clean import paths
-- **CLI in cmd/**: thin wrapper around library
-- **Private code in internal/**: implementation details
-- **Skip pkg/**: it adds nothing
-- **One module**: avoid multi-module complexity
+- **CLI/server in cmd/** or main.go: thin wrapper around library
+- **Private code in internal/**: when you need compiler-enforced privacy
+- **pkg/ is optional**: skip it unless you have a specific reason
+- **One module**: avoid multi-module complexity (topic for another article)
 
 The best layout is the one you don't think about. If you're spending time on structure instead of code, you're over-engineering.
